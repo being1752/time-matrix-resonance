@@ -1,0 +1,34 @@
+[data.mysql]
+host = "localhost"
+user = "root"
+password = "CHANGE_ME"
+database = "stock_data"
+table = "stock_minute_quotes"
+stock_code = "001330"
+
+[backtest]
+max_period = 0
+warmup_months = 1
+epsilon = 0.0000000001
+progress_every = 5000
+
+[resonance.entry]
+min_length = 10
+min_ratio = 0.8
+min_consecutive_trend = 8
+
+[resonance.trigger]
+divisor = 10
+
+[resonance.exit]
+min_ratio = 0.8
+min_trend_count = 0
+min_consecutive_trend = 8
+
+[output]
+dir = "backtest_output_mysql"
+
+[logging]
+level = "INFO"
+file = "backtest_output_mysql/backtest.log"
+
