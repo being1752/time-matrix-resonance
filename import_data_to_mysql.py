@@ -40,7 +40,7 @@ def parse_int(value: str) -> int:
 
 
 def parse_stock_title(line: str) -> tuple[str, str]:
-    match = re.search(r"(.+?)\s*\((\d{6})\)", line.strip())
+    match = re.search(r"(.+?)\s*\(([A-Za-z0-9._-]+)\)", line.strip())
     if not match:
         raise ValueError(f"cannot parse stock name/code from title: {line!r}")
     return match.group(1).strip(), match.group(2)
@@ -63,7 +63,7 @@ def parse_rows(path: Path) -> tuple[str, str, list[tuple]]:
 
         parts = [clean_cell(part) for part in line.split("\t")]
         parts = [part for part in parts if part != ""]
-        if len(parts) < 9:
+        if len(parts) < 6:
             continue
 
         try:
@@ -73,6 +73,10 @@ def parse_rows(path: Path) -> tuple[str, str, list[tuple]]:
                 trade_time = datetime.strptime(parts[0], "%Y/%m/%d-%H:%M")
             except ValueError as exc:
                 raise ValueError(f"line {line_no}: invalid time value {parts[0]!r}") from exc
+
+        macd_dif = parse_decimal(parts[6]) if len(parts) > 6 else Decimal("0")
+        macd_dea = parse_decimal(parts[7]) if len(parts) > 7 else Decimal("0")
+        macd_macd = parse_decimal(parts[8]) if len(parts) > 8 else Decimal("0")
 
         rows.append(
             (
@@ -84,9 +88,9 @@ def parse_rows(path: Path) -> tuple[str, str, list[tuple]]:
                 parse_decimal(parts[3]),
                 parse_decimal(parts[4]),
                 parse_int(parts[5]),
-                parse_decimal(parts[6]),
-                parse_decimal(parts[7]),
-                parse_decimal(parts[8]),
+                macd_dif,
+                macd_dea,
+                macd_macd,
                 path.name,
             )
         )
@@ -201,7 +205,7 @@ ORDER BY `month`
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Import 001330 stock data into local MySQL.")
+    parser = argparse.ArgumentParser(description="Import minute quote data into local MySQL.")
     parser.add_argument("--file", default=DEFAULT_FILE, help="source xls/text file path")
     parser.add_argument("--host", default=DEFAULT_HOST, help="MySQL host")
     parser.add_argument("--user", default=DEFAULT_USER, help="MySQL user")

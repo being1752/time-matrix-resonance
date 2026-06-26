@@ -8,6 +8,7 @@ stock_code = "001330"
 
 [backtest]
 max_period = 0
+max_bars = 0
 warmup_months = 1
 epsilon = 0.0000000001
 progress_every = 5000
@@ -25,10 +26,14 @@ min_ratio = 0.8
 min_trend_count = 0
 min_consecutive_trend = 8
 
+[validation]
+enabled = true
+min_expected_minutes = 1
+
 [output]
 dir = "backtest_output_mysql"
+chart_data_copy_to = ""
 
 [logging]
 level = "INFO"
 file = "backtest_output_mysql/backtest.log"
-

@@ -1,4 +1,15 @@
+from dataclasses import dataclass
+
 from .models import Direction, PeriodSnapshot, ResonanceInterval, TrendState
+
+
+@dataclass(frozen=True)
+class IntervalStats:
+    total: int
+    trend_count: int
+    max_consecutive_trend: int
+    trend_ratio: float
+    missing_count: int
 
 
 def scan_best_interval(
@@ -71,33 +82,55 @@ def interval_is_valid(
     min_trend_count: int,
     min_consecutive_trend: int,
 ) -> bool:
-    wanted_trend = TrendState.UP if interval.direction == Direction.LONG else TrendState.DOWN
+    # 持仓期间只校验开仓时锁定的原始区间。
+    # 不用最新最优区间替换它，确保整个持仓周期内 P_min/P_max/P_trigger 稳定。
+    stats = evaluate_interval(snapshots, interval.direction, interval.p_min, interval.p_max)
+    if stats.total <= 0 or stats.missing_count > 0:
+        return False
+    if stats.trend_ratio < min_ratio:
+        return False
+    if min_trend_count > 0 and stats.trend_count < min_trend_count:
+        return False
+    if stats.max_consecutive_trend < min_consecutive_trend:
+        return False
+    return True
+
+
+def evaluate_interval(
+    snapshots: dict[int, PeriodSnapshot],
+    direction: Direction,
+    p_min: int,
+    p_max: int,
+) -> IntervalStats:
+    wanted_trend = TrendState.UP if direction == Direction.LONG else TrendState.DOWN
     trend_count = 0
     consecutive_trend = 0
     max_consecutive_trend = 0
     total = 0
-    # 持仓期间只校验开仓时锁定的原始区间。
-    # 不用最新最优区间替换它，确保整个持仓周期内 P_min/P_max/P_trigger 稳定。
-    for period in range(interval.p_min, interval.p_max + 1):
+    missing_count = 0
+
+    for period in range(p_min, p_max + 1):
+        total += 1
         snapshot = snapshots.get(period)
         if snapshot is None:
-            return False
-        total += 1
+            missing_count += 1
+            consecutive_trend = 0
+            continue
         if snapshot.trend == wanted_trend:
             trend_count += 1
             consecutive_trend += 1
             max_consecutive_trend = max(max_consecutive_trend, consecutive_trend)
         else:
             consecutive_trend = 0
-    if total <= 0:
-        return False
-    if trend_count / total < min_ratio:
-        return False
-    if min_trend_count > 0 and trend_count < min_trend_count:
-        return False
-    if max_consecutive_trend < min_consecutive_trend:
-        return False
-    return True
+
+    trend_ratio = trend_count / total if total else 0.0
+    return IntervalStats(
+        total=total,
+        trend_count=trend_count,
+        max_consecutive_trend=max_consecutive_trend,
+        trend_ratio=trend_ratio,
+        missing_count=missing_count,
+    )
 
 
 def interval_key(interval: ResonanceInterval | None) -> tuple | None:
